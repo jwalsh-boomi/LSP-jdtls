@@ -1,8 +1,11 @@
+import hashlib
 import json
 import os
 import re
+import shutil
 
 import sublime
+import sublime_plugin
 from urllib.parse import urlparse
 from LSP.plugin import (
     AbstractPlugin,
@@ -162,6 +165,17 @@ class EclipseJavaDevelopmentTools(AbstractPlugin):
         cls._enable_lombok(configuration)
         cls._insert_bundles(configuration)
 
+        # Use per-project data directory to prevent workspace locking conflicts
+        # when multiple Sublime Text windows run jdtls simultaneously.
+        if workspace_folders:
+            folders_key = "|".join(sorted(wf.path for wf in workspace_folders))
+            folder_hash = hashlib.md5(folders_key.encode()).hexdigest()[:12]
+            try:
+                data_idx = configuration.command.index("-data")
+                configuration.command[data_idx + 1] = installer.jdtls_data_path() + "_" + folder_hash
+            except (ValueError, IndexError):
+                pass
+
         configuration.init_options.set(
             "workspaceFolders", [x.uri() for x in workspace_folders]
         )
@@ -270,6 +284,95 @@ class EclipseJavaDevelopmentTools(AbstractPlugin):
             )
             for sv in session.session_views_async():
                 sv.on_capability_added_async(registration_id, capability_path, options)
+
+
+def _active_data_hashes() -> set:
+    """Return the set of data dir hashes for all currently open windows."""
+    hashes = set()
+    for window in sublime.windows():
+        folders = window.folders()
+        if folders:
+            folders_key = "|".join(sorted(folders))
+            hashes.add(hashlib.md5(folders_key.encode()).hexdigest()[:12])
+    return hashes
+
+
+def _get_data_dirs() -> List[Dict[str, Any]]:
+    """List all per-project data directories with metadata."""
+    base = installer.storage_subpath()
+    dirs = []
+    if not os.path.isdir(base):
+        return dirs
+    active_hashes = _active_data_hashes()
+    for name in os.listdir(base):
+        if not name.startswith("data_"):
+            continue
+        path = os.path.join(base, name)
+        if not os.path.isdir(path):
+            continue
+        folder_hash = name[5:]  # strip "data_"
+        size_mb = sum(
+            os.path.getsize(os.path.join(dp, f))
+            for dp, _, fns in os.walk(path)
+            for f in fns
+        ) / (1024 * 1024)
+        mtime = os.path.getmtime(path)
+        dirs.append({
+            "name": name,
+            "path": path,
+            "hash": folder_hash,
+            "size_mb": size_mb,
+            "mtime": mtime,
+            "active": folder_hash in active_hashes,
+        })
+    dirs.sort(key=lambda d: d["mtime"], reverse=True)
+    return dirs
+
+
+class LspJdtlsCleanDataDirectoriesCommand(sublime_plugin.WindowCommand):
+    def run(self) -> None:
+        self._dirs = _get_data_dirs()
+        if not self._dirs:
+            sublime.message_dialog("No per-project jdtls data directories found.")
+            return
+
+        items = []
+        for d in self._dirs:
+            import datetime
+            modified = datetime.datetime.fromtimestamp(d["mtime"]).strftime("%Y-%m-%d")
+            status = "IN USE" if d["active"] else "stale"
+            items.append("{} — {:.0f} MB — {} — {}".format(d["name"], d["size_mb"], modified, status))
+
+        items.insert(0, "Delete all stale directories")
+        self.window.show_quick_panel(items, self._on_select)
+
+    def _on_select(self, index: int) -> None:
+        if index == -1:
+            return
+        if index == 0:
+            stale = [d for d in self._dirs if not d["active"]]
+            if not stale:
+                sublime.message_dialog("No stale directories to delete.")
+                return
+            total_mb = sum(d["size_mb"] for d in stale)
+            if sublime.ok_cancel_dialog(
+                "Delete {} stale director{} ({:.0f} MB)?".format(
+                    len(stale), "y" if len(stale) == 1 else "ies", total_mb
+                )
+            ):
+                for d in stale:
+                    shutil.rmtree(d["path"], ignore_errors=True)
+                sublime.status_message("LSP-jdtls: Deleted {} stale data director{}.".format(
+                    len(stale), "y" if len(stale) == 1 else "ies"
+                ))
+        else:
+            d = self._dirs[index - 1]
+            if d["active"]:
+                sublime.message_dialog("Cannot delete — this data directory is in use by an open window.")
+                return
+            if sublime.ok_cancel_dialog("Delete {} ({:.0f} MB)?".format(d["name"], d["size_mb"])):
+                shutil.rmtree(d["path"], ignore_errors=True)
+                sublime.status_message("LSP-jdtls: Deleted {}.".format(d["name"]))
 
 
 def plugin_loaded() -> None:
