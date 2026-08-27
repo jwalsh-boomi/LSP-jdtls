@@ -1,0 +1,29 @@
+modules/jdtls_commands.py
+  s_b588d96bfffba9::t_615042723f0380 40-41,43-59
+modules/installer.py
+  s_b588d96bfffba9::t_c3917362411ec0 117-130
+  s_b588d96bfffba9::t_5b33076113c229 1,12
+modules/jdtls.py
+  s_b588d96bfffba9::t_40d34e7a3c279e 20,25
+  s_b588d96bfffba9::t_7d7d767e32620f 51-73
+  s_b588d96bfffba9::t_487699a98b344b 310-322,324-337,341,346,348,356-358
+  s_b588d96bfffba9::t_e9dc5b4c79a7cc 1
+  s_b588d96bfffba9::t_299417a7f06623 194-198
+  s_b588d96bfffba9::t_a335dc927c99e4 402-406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a3845b397614009d2b4af31478c2a39485177830",
+  "prompts": {},
+  "sessions": {
+    "s_b588d96bfffba9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "49260008-6472-4975-b81c-4a6c8bc069db",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Jason Walsh <jwalsh@boomi.com>"
+    }
+  }
+}
