@@ -1,4 +1,4 @@
-import hashlib
+import datetime
 import json
 import os
 import re
@@ -17,11 +17,12 @@ from LSP.plugin import (
 from LSP.plugin.core.protocol import DocumentUri
 from LSP.plugin.core.protocol import ExecuteCommandParams
 from LSP.plugin.core.types import ClientConfig
-from LSP.plugin.core.typing import Any, Callable, Dict, List, Optional
+from LSP.plugin.core.typing import Any, Callable, Dict, List, Optional, Set
 from LSP.plugin.core.views import text_document_identifier
 
 from . import installer
 from .constants import (
+    DATA_DIR,
     JDTLS_CONFIG_TO_SUBLIME_SETTING,
     SESSION_NAME,
     SETTING_JAVA_HOME,
@@ -45,6 +46,29 @@ from .workspace_execute_client_command_handler import (
     workspace_executeClientCommand,
 )
 from .workspace_execute_command_handler import handle_client_command
+
+
+_launched_data_paths = {}  # type: Dict[int, str]
+"""Data directory each window's server was launched with, keyed by window id."""
+
+
+def _set_data_argument(command: List[str], data_path: str) -> None:
+    """
+    Points the server's -data argument at data_path.
+
+    The argument is appended when the configured command does not carry one, so
+    that a customized command cannot silently fall back to a data directory
+    shared with the other open windows.
+    """
+    try:
+        index = command.index("-data")
+    except ValueError:
+        command.extend(["-data", data_path])
+        return
+    if index + 1 < len(command):
+        command[index + 1] = data_path
+    else:
+        command.append(data_path)
 
 
 @add_request_handler("workspace/executeClientCommand", workspace_executeClientCommand)
@@ -167,14 +191,11 @@ class EclipseJavaDevelopmentTools(AbstractPlugin):
 
         # Use per-project data directory to prevent workspace locking conflicts
         # when multiple Sublime Text windows run jdtls simultaneously.
-        if workspace_folders:
-            folders_key = "|".join(sorted(wf.path for wf in workspace_folders))
-            folder_hash = hashlib.md5(folders_key.encode()).hexdigest()[:12]
-            try:
-                data_idx = configuration.command.index("-data")
-                configuration.command[data_idx + 1] = installer.jdtls_data_path() + "_" + folder_hash
-            except (ValueError, IndexError):
-                pass
+        data_path = installer.jdtls_data_path_for_folders(
+            [wf.path for wf in workspace_folders]
+        )
+        _set_data_argument(configuration.command, data_path)
+        _launched_data_paths[window.id()] = data_path
 
         configuration.init_options.set(
             "workspaceFolders", [x.uri() for x in workspace_folders]
@@ -286,44 +307,55 @@ class EclipseJavaDevelopmentTools(AbstractPlugin):
                 sv.on_capability_added_async(registration_id, capability_path, options)
 
 
-def _active_data_hashes() -> set:
-    """Return the set of data dir hashes for all currently open windows."""
-    hashes = set()
+def _active_data_paths() -> Set[str]:
+    """
+    Data directories that an open window is using or would use.
+
+    Both sources are needed: the recorded launch path covers a session whose
+    project folders changed after the server started, and the folder derived
+    path covers a window whose server has not started yet.
+    """
+    open_ids = {window.id() for window in sublime.windows()}
+    for window_id in list(_launched_data_paths):
+        if window_id not in open_ids:
+            del _launched_data_paths[window_id]
+    paths = set(_launched_data_paths.values())
     for window in sublime.windows():
-        folders = window.folders()
-        if folders:
-            folders_key = "|".join(sorted(folders))
-            hashes.add(hashlib.md5(folders_key.encode()).hexdigest()[:12])
-    return hashes
+        paths.add(installer.jdtls_data_path_for_folders(window.folders()))
+    return paths
+
+
+def _dir_size_mb(path: str) -> float:
+    """Size of the directory tree, skipping files that vanish while walking it."""
+    total = 0
+    for dirpath, _, filenames in os.walk(path):
+        for filename in filenames:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, filename))
+            except OSError:
+                pass
+    return total / (1024 * 1024)
 
 
 def _get_data_dirs() -> List[Dict[str, Any]]:
-    """List all per-project data directories with metadata."""
+    """List all jdtls data directories with metadata."""
     base = installer.storage_subpath()
     dirs = []
     if not os.path.isdir(base):
         return dirs
-    active_hashes = _active_data_hashes()
+    active_paths = _active_data_paths()
     for name in os.listdir(base):
-        if not name.startswith("data_"):
+        if name != DATA_DIR and not name.startswith(DATA_DIR + "_"):
             continue
         path = os.path.join(base, name)
         if not os.path.isdir(path):
             continue
-        folder_hash = name[5:]  # strip "data_"
-        size_mb = sum(
-            os.path.getsize(os.path.join(dp, f))
-            for dp, _, fns in os.walk(path)
-            for f in fns
-        ) / (1024 * 1024)
-        mtime = os.path.getmtime(path)
         dirs.append({
             "name": name,
             "path": path,
-            "hash": folder_hash,
-            "size_mb": size_mb,
-            "mtime": mtime,
-            "active": folder_hash in active_hashes,
+            "size_mb": _dir_size_mb(path),
+            "mtime": os.path.getmtime(path),
+            "active": path in active_paths,
         })
     dirs.sort(key=lambda d: d["mtime"], reverse=True)
     return dirs
@@ -338,7 +370,6 @@ class LspJdtlsCleanDataDirectoriesCommand(sublime_plugin.WindowCommand):
 
         items = []
         for d in self._dirs:
-            import datetime
             modified = datetime.datetime.fromtimestamp(d["mtime"]).strftime("%Y-%m-%d")
             status = "IN USE" if d["active"] else "stale"
             items.append("{} — {:.0f} MB — {} — {}".format(d["name"], d["size_mb"], modified, status))
@@ -368,7 +399,11 @@ class LspJdtlsCleanDataDirectoriesCommand(sublime_plugin.WindowCommand):
         else:
             d = self._dirs[index - 1]
             if d["active"]:
-                sublime.message_dialog("Cannot delete — this data directory is in use by an open window.")
+                sublime.message_dialog(
+                    "Cannot delete — this data directory is in use by an open window.\n\n"
+                    "To clear the workspace of the project in this window, run "
+                    "\"LSP-jdtls: Clear data\"."
+                )
                 return
             if sublime.ok_cancel_dialog("Delete {} ({:.0f} MB)?".format(d["name"], d["size_mb"])):
                 shutil.rmtree(d["path"], ignore_errors=True)

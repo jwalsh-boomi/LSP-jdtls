@@ -1,3 +1,4 @@
+import hashlib
 import os
 import shutil
 import stat
@@ -8,7 +9,7 @@ from urllib.request import urlopen
 from pathlib import Path
 
 import sublime
-from LSP.plugin.core.typing import Callable, Union
+from LSP.plugin.core.typing import Callable, List, Union
 from LSP.plugin.core.constants import ST_STORAGE_PATH
 
 from .constants import (
@@ -111,6 +112,20 @@ def jdtls_path() -> str:
 
 def jdtls_data_path() -> str:
     return os.path.join(storage_subpath(), DATA_DIR)
+
+
+def jdtls_data_path_for_folders(folders: List[str]) -> str:
+    """
+    Path of the Eclipse workspace dedicated to the given project folders.
+
+    Each distinct set of folders gets its own workspace so that jdtls instances
+    in separate Sublime Text windows do not lock each other out. A window
+    without project folders uses the shared workspace at jdtls_data_path().
+    """
+    if not folders:
+        return jdtls_data_path()
+    digest = hashlib.md5("|".join(sorted(folders)).encode()).hexdigest()[:12]
+    return "{}_{}".format(jdtls_data_path(), digest)
 
 
 def vscode_plugin_path(plugin_name: str) -> str:

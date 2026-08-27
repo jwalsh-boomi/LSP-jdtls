@@ -37,12 +37,23 @@ class LspJdtlsBuildWorkspace(LspJdtlsTextCommand):
 
 
 class JdtlsClearData(sublime_plugin.TextCommand):
+    """Deletes the Eclipse workspace of this window's project and restarts the server."""
+
     def run(self, edit) -> None:
-        if sublime.ok_cancel_dialog(
-            "Are you sure you want to clear " + installer.jdtls_data_path()
-        ):
-            if os.path.exists(installer.jdtls_data_path()):
-                shutil.rmtree(installer.jdtls_data_path())
-                self.view.run_command(
-                    "lsp_restart_server", {"config_name": SESSION_NAME}
-                )
+        window = self.view.window()
+        if not window:
+            return
+        data_path = installer.jdtls_data_path_for_folders(window.folders())
+        if not os.path.exists(data_path):
+            sublime.message_dialog("LSP-jdtls: nothing to clear at " + data_path)
+            return
+        if not sublime.ok_cancel_dialog("Are you sure you want to clear " + data_path):
+            return
+        try:
+            shutil.rmtree(data_path)
+        except OSError as error:
+            sublime.error_message(
+                "LSP-jdtls: could not clear {}\n\n{}".format(data_path, error)
+            )
+            return
+        self.view.run_command("lsp_restart_server", {"config_name": SESSION_NAME})
