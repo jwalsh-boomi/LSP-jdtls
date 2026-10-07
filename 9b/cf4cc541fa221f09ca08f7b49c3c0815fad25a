@@ -1,0 +1,24 @@
+modules/workspace_execute_command_handler.py
+  s_675f37dfdd1669::t_bc2605050b68d1 53-57
+  s_675f37dfdd1669::t_66eaef6be5b572 9,26
+modules/move_refactoring.py
+  s_675f37dfdd1669::t_a60959e6ba6cf2 1-372
+modules/jdtls.py
+  s_675f37dfdd1669::t_4f256fbdf35963 220
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "9bcf4cc541fa221f09ca08f7b49c3c0815fad25a",
+  "prompts": {},
+  "sessions": {
+    "s_675f37dfdd1669": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61e0163c-4223-4f5d-b296-da82567e8eca",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Jason Walsh <jwalsh@boomi.com>"
+    }
+  }
+}
