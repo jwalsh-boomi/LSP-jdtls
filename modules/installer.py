@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import os
 import shutil
@@ -5,12 +7,12 @@ import stat
 import tarfile
 import tempfile
 import zipfile
-from urllib.request import urlopen
 from pathlib import Path
+from typing import Callable, List
+from urllib.request import urlopen
 
 import sublime
-from LSP.plugin.core.typing import Callable, List, Union
-from LSP.plugin.core.constants import ST_STORAGE_PATH
+from LSP.plugin import ST_STORAGE_PATH
 
 from .constants import (
     DATA_DIR,
@@ -43,10 +45,8 @@ def download_file(url: str, file_name: str) -> None:
 def _extract_file(
     url: str,
     path: str,
-    open_function: Union[
-        Callable[[str], zipfile.ZipFile], Callable[[str], tarfile.TarFile]
-    ],
-):
+    open_function: Callable[[str], zipfile.ZipFile] | Callable[[str], tarfile.TarFile],
+) -> None:
     with tempfile.TemporaryDirectory() as download_dir:
         compressed_file = os.path.join(download_dir, "compressed_file")
         download_file(url, compressed_file)
@@ -59,7 +59,8 @@ def _extract_file(
         _make_all_files_writable(uncompress_dir)
         shutil.move(uncompress_dir, path)
 
-def _make_all_files_writable(root_dir):
+
+def _make_all_files_writable(root_dir: str) -> None:
     """
     Make's all files in folder writeable
     """
@@ -76,7 +77,8 @@ def _make_all_files_writable(root_dir):
             except Exception as e:
                 print(f"Failed on {path}: {e}")
 
-def extract_zip(url: str, path: str):
+
+def extract_zip(url: str, path: str) -> None:
     """
     Extracts the zip at `url` to `path`.
     The zip is extracted into `path` if it already exists.
@@ -84,7 +86,7 @@ def extract_zip(url: str, path: str):
     _extract_file(url, path, lambda x: zipfile.ZipFile(x, "r"))
 
 
-def extract_tar(url: str, path: str):
+def extract_tar(url: str, path: str) -> None:
     """
     Extracts the tar at `url` to `path`.
     The tar is extracted into `path` if it already exists.
@@ -105,9 +107,7 @@ def install_path() -> str:
 
 
 def jdtls_path() -> str:
-    return os.path.join(
-        install_path(), "jdtls-{version}".format(version=_jdtls_version())
-    )
+    return os.path.join(install_path(), f"jdtls-{_jdtls_version()}")
 
 
 def jdtls_data_path() -> str:
@@ -144,10 +144,7 @@ def vscode_plugin_extension_path(plugin_name: str) -> str:
 
 
 def lombok_jar_path() -> str:
-    return os.path.join(
-        install_path(),
-        "lombok-{version}.jar".format(version=LOMBOK_VERSION),
-    )
+    return os.path.join(install_path(), f"lombok-{LOMBOK_VERSION}.jar")
 
 
 # Install / Update
@@ -181,6 +178,6 @@ def install_or_update() -> None:
     sublime.status_message("LSP-jdtls: downloading lombok...")
     download_file(LOMBOK_URL.format(version=LOMBOK_VERSION), lombok_jar_path())
     for plugin_name, plugin in VSCODE_PLUGINS.items():
-        sublime.status_message("LSP-jdtls: downloading {name}...".format(name=plugin_name))
+        sublime.status_message(f"LSP-jdtls: downloading {plugin_name}...")
         extract_zip(plugin["url"].format(version=plugin["version"]), vscode_plugin_path(plugin_name))
     # fmt: on

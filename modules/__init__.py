@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .debug_extension import LspJdtlsRefreshWorkspace
 from .jdtls import EclipseJavaDevelopmentTools, plugin_loaded, plugin_unloaded
 from .jdtls_commands import JdtlsClearData, LspJdtlsBuildWorkspace
@@ -11,18 +13,16 @@ from .test_extension_commands import (
 )
 
 __all__ = (
-    # LSP adapter
-    "plugin_loaded",
-    "plugin_unloaded",
     "EclipseJavaDevelopmentTools",
-    # Sublime commands
-    "LspJdtlsRefreshWorkspace",
+    "JdtlsClearData",
     "JdtlsInputCommand",
+    "LspJdtlsBuildWorkspace",
     "LspJdtlsGenerateTests",
     "LspJdtlsGotoTest",
+    "LspJdtlsRefreshWorkspace",
+    "LspJdtlsRunTest",
     "LspJdtlsRunTestAtCursor",
     "LspJdtlsRunTestClass",
-    "LspJdtlsRunTest",
-    "LspJdtlsBuildWorkspace",
-    "JdtlsClearData",
+    "plugin_loaded",
+    "plugin_unloaded",
 )

@@ -23,12 +23,11 @@
         "-Declipse.product=org.eclipse.jdt.ls.core.product",
         "-Dfile.encoding=UTF-8",
         "-DwatchParentProcess=${watch_parent_process}",
-        "-noverify",
         "-XX:+UseParallelGC",
         "-XX:GCTimeRatio=4",
         "-XX:AdaptiveSizePolicyWeight=90",
         "-Dsun.zip.disableMemoryMapping=true",
-        "-Xmx1G",
+        "-Xmx2G",
         "-Xms100m",
         "-jar",
         "${serverdir}/plugins/org.eclipse.equinox.launcher_${launcher_version}.jar",
@@ -37,7 +36,6 @@
         "-data",
         "${datadir}"
     ],
-    "initializationOptions": {},
     // Overwrite the jdtls version. An empty string uses the latest release that was tested by the LSP-jdtls developers. 
     // Must be formatted like "1.27.1" matching https://download.eclipse.org/jdtls/milestones/.
     // Restart sublime after changing this setting

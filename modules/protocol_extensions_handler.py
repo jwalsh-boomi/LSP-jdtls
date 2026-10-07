@@ -3,30 +3,34 @@ Handler for JDTLS protocol extensions.
 
 See https://github.com/redhat-developer/vscode-java/blob/master/src/standardLanguageClient.ts
 """
-import sublime
-from LSP.plugin import Session
-from LSP.plugin.core.protocol import (
-    Command,
-    ExecuteCommandParams,  # noqa: F401
-)
-from LSP.plugin.core.typing import Optional
 
-from .protocol import ActionableNotification, ProgressReport, StatusReport
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import sublime
+
 from .quick_input_panel import QuickSelect, SelectableItem
+
+if TYPE_CHECKING:
+    from LSP.plugin import Session
+    from LSP.protocol import Command, ExecuteCommandParams
+
+    from .protocol import ActionableNotification, ProgressReport, StatusReport
 
 
 def language_actionableNotification(
     session: Session, notification: ActionableNotification
-):
-    def run_command(command: Optional[Command]):
+) -> None:
+    def run_command(command: Command | None) -> None:
         if not command:
             return
-        params = {"command": command["command"]}  # type: ExecuteCommandParams
+        params: ExecuteCommandParams = {"command": command["command"]}
         if "arguments" in command:
             params["arguments"] = command["arguments"]
-        session.execute_command(params, False)
+        session.execute_command(params)
 
-    command = None  # type: Optional[Command]
+    command: Command | None = None
     if "commands" not in notification or len(notification["commands"]) == 0:
         sublime.message_dialog(notification["message"])
     elif len(notification["commands"]) == 1:
@@ -52,23 +56,20 @@ def language_actionableNotification(
     run_command(command)
 
 
-def language_progressReport(session: Session, params: ProgressReport):
-    key = params["id"] if "id" in params else "jdtls-status-dummy-key"
-    if not params["complete"]:
-        session.set_window_status_async(
-            key,
-            "{}% {}".format(
-                params["workDone"] / params["totalWork"] * 100, params["task"]
-            ),
-        )
-    else:
-        session.set_window_status_async(
-            key,
-            "{}% {}".format(
-                params["totalWork"] / params["totalWork"] * 100, params["task"]
-            ),
-        )
-        sublime.set_timeout_async(lambda: session.erase_window_status_async(key), 1000)
+progress_reports: dict[str, str] = {}
+
+
+def language_progressReport(session: Session, params: ProgressReport) -> None:
+    key = params.get("id", "jdtls-status-dummy-key")
+    progress_reports[key] = "{}% {}".format(params["workDone"] / params["totalWork"] * 100, params["task"])
+    _update_config_status_async(session)
+    if params["complete"]:
+        progress_reports.pop(key, None)
+        sublime.set_timeout_async(lambda: _update_config_status_async(session), 1000)
+
+
+def _update_config_status_async(session: Session) -> None:
+    session.set_config_status_async(", ".join(progress_reports.values()))
 
 
 def language_status(session: Session, params: StatusReport) -> None:
