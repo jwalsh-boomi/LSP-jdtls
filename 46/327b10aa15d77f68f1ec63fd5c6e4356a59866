@@ -1,0 +1,33 @@
+modules/installer.py
+  s_1bcfc4f61953c8::t_dcc7763a603a53 11
+  s_1bcfc4f61953c8::t_61b5b7018e95ee 12
+  s_1bcfc4f61953c8::t_090e8066ddecd0 1-2,15,48-49,62-63,80-81,89,110,147,181,183
+modules/jdtls.py
+  s_1bcfc4f61953c8::t_ed3b5d0285004d 8
+  s_1bcfc4f61953c8::t_c1d18b05c2e2d8 54
+  s_1bcfc4f61953c8::t_17dd5bd1ecec54 9
+  s_1bcfc4f61953c8::t_6d1c465daad8c5 1-2,18,21-22,46,49-52,85,93,98,106-107,136,172-173,183-184,193,198,200,248,261,264-265,272,279,284,286-287
+modules/jdtls_commands.py
+  s_1bcfc4f61953c8::t_875268fa7f5624 48
+  s_1bcfc4f61953c8::t_b52f549c92aa9a 1-2,5,15-17,20,23,28,41
+modules/workspace_execute_client_command_handler.py
+  s_1bcfc4f61953c8::t_b3aff2e0d690dd 6-9,11,62,100
+modules/workspace_execute_command_handler.py
+  s_1bcfc4f61953c8::t_e6e03e2e403fdc 3-6,14-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "46327b10aa15d77f68f1ec63fd5c6e4356a59866",
+  "prompts": {},
+  "sessions": {
+    "s_1bcfc4f61953c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "37b21998-fc27-4d46-92d1-31f486337a97",
+        "model": "openai.gpt-5.6-luna"
+      },
+      "human_author": "Jason Walsh <jwalsh@boomi.com>"
+    }
+  }
+}
