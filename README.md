@@ -36,7 +36,14 @@ jdtls can do a lot of cool things, like
 | lsp_jdtls_run_test_class      | Runs the test class in the active view                | LSP-jdtls: Run Test Class                             | _(experimental)_ Requires [Debugger](https://github.com/daveleroy/sublime_debugger)|
 | lsp_jdtls_run_test_at_cursor  | Runs the test at the first cursor                     | LSP-jdtls: Run Test At Cursor                         | _(experimental)_ Requires [Debugger](https://github.com/daveleroy/sublime_debugger)|
 | lsp_jdtls_run_test            | Opens a panel to run a test in the active view        | LSP-jdtls: Run Test...                                | _(experimental)_ Requires [Debugger](https://github.com/daveleroy/sublime_debugger)|
-| jdtls_clear_data              | Clears the server data directory                      | LSP-jdtls: Clear data                                 | |
+| jdtls_clear_data              | Clears the JDTLS workspace for the current window     | LSP-jdtls: Clear data                                 | This targets the window's project-specific workspace directory. |
+| lsp_jdtls_clean_data_directories | Lists and removes stale per-project JDTLS workspaces | LSP-jdtls: Clean Stale Data Directories               | This is a maintenance command for old workspace folders left behind by multi-window usage. |
+
+### Data directories
+
+JDTLS keeps its workspace cache under the package storage folder. The plugin uses a shared base directory and derives a project-specific workspace for each distinct set of open folders. This avoids conflicts when multiple Sublime Text windows are running JDTLS at the same time.
+
+In practice, the base directory is the root namespace under which workspace folders live, and the active workspace for a given window is a derived folder such as `data_<hash>`. The `LSP-jdtls: Clear data` command resets the current window's workspace only. The `LSP-jdtls: Clean Stale Data Directories` command helps remove older derived directories that are no longer in use.
 
 ## Troubleshoot
 
